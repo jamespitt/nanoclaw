@@ -1,6 +1,6 @@
 /**
  * Container Runner for NanoClaw
- * Spawns agent execution in Apple Container and handles IPC
+ * Spawns agent execution in Docker container and handles IPC
  */
 import { ChildProcess, exec, spawn } from 'child_process';
 import fs from 'fs';
@@ -88,7 +88,7 @@ function buildVolumeMounts(
     });
 
     // Global memory directory (read-only for non-main)
-    // Apple Container only supports directory mounts, not file mounts
+    // Docker bind mounts work with both files and directories
     const globalDir = path.join(GROUPS_DIR, 'global');
     if (fs.existsSync(globalDir)) {
       mounts.push({
@@ -160,13 +160,56 @@ function buildVolumeMounts(
   });
 
   // Mount agent-runner source from host — recompiled on container startup.
-  // Bypasses Apple Container's sticky build cache for code changes.
+  // Allows code changes without rebuilding the Docker image.
   const agentRunnerSrc = path.join(projectRoot, 'container', 'agent-runner', 'src');
   mounts.push({
     hostPath: agentRunnerSrc,
     containerPath: '/app/src',
     readonly: true,
   });
+
+  // Mount notesmd-cli binary and vault if available on the host.
+  // The binary is mounted directly onto PATH; configs are mounted to the container
+  // HOME (/home/node) so notesmd-cli can resolve vault paths from the Obsidian config.
+  const notesmdBin = '/usr/local/bin/notesmd-cli';
+  if (fs.existsSync(notesmdBin)) {
+    mounts.push({
+      hostPath: notesmdBin,
+      containerPath: '/usr/local/bin/notesmd-cli',
+      readonly: true,
+    });
+
+    // Obsidian config so notesmd-cli can resolve vault names → paths
+    const obsidianConfig = path.join(homeDir, '.config', 'obsidian');
+    if (fs.existsSync(obsidianConfig)) {
+      mounts.push({
+        hostPath: obsidianConfig,
+        containerPath: '/home/node/.config/obsidian',
+        readonly: true,
+      });
+    }
+
+    // notesmd-cli preferences (default vault name etc.)
+    const notesmdConfig = path.join(homeDir, '.config', 'notesmd-cli');
+    if (fs.existsSync(notesmdConfig)) {
+      mounts.push({
+        hostPath: notesmdConfig,
+        containerPath: '/home/node/.config/notesmd-cli',
+        readonly: true,
+      });
+    }
+  }
+
+  // Mount the notes vault at the same path as the host so notesmd-cli's
+  // Obsidian config path references resolve correctly inside the container.
+  const notesVault = path.join(homeDir, 'src', 'james_notes');
+  if (fs.existsSync(notesVault)) {
+    mounts.push({
+      hostPath: notesVault,
+      containerPath: notesVault,
+      readonly: true,
+    });
+  }
 
   // Additional mounts validated against external allowlist (tamper-proof from containers)
   if (group.containerConfig?.additionalMounts) {
@@ -190,7 +233,13 @@ function readSecrets(): Record<string, string> {
 }
 
 function buildContainerArgs(mounts: VolumeMount[], containerName: string): string[] {
-  const args: string[] = ['run', '-i', '--rm', '--name', containerName];
+  // Run as the host user so mounted directories are writable
+  const uid = process.getuid?.() ?? 1000;
+  const gid = process.getgid?.() ?? 1000;
+  const args: string[] = ['run', '-i', '--rm', '--name', containerName,
+    '--user', `${uid}:${gid}`,
+    '--env', 'HOME=/home/node',
+  ];
 
   // Run as host user so bind-mounted files are accessible.
   // Skip when running as root (uid 0), as the container's node user (uid 1000),
@@ -203,12 +252,10 @@ function buildContainerArgs(mounts: VolumeMount[], containerName: string): strin
   }
 
   // Apple Container: --mount for readonly, -v for read-write
+  // Docker: -v with :ro suffix for readonly
   for (const mount of mounts) {
     if (mount.readonly) {
-      args.push(
-        '--mount',
-        `type=bind,source=${mount.hostPath},target=${mount.containerPath},readonly`,
-      );
+      args.push('-v', `${mount.hostPath}:${mount.containerPath}:ro`);
     } else {
       args.push('-v', `${mount.hostPath}:${mount.containerPath}`);
     }
@@ -262,7 +309,7 @@ export async function runContainerAgent(
   fs.mkdirSync(logsDir, { recursive: true });
 
   return new Promise((resolve) => {
-    const container = spawn('container', containerArgs, {
+    const container = spawn('docker', containerArgs, {
       stdio: ['pipe', 'pipe', 'pipe'],
     });
 
@@ -369,7 +416,7 @@ export async function runContainerAgent(
     const killOnTimeout = () => {
       timedOut = true;
       logger.error({ group: group.name, containerName }, 'Container timeout, stopping gracefully');
-      exec(`container stop ${containerName}`, { timeout: 15000 }, (err) => {
+      exec(`docker stop ${containerName}`, { timeout: 15000 }, (err) => {
         if (err) {
           logger.warn({ group: group.name, containerName, err }, 'Graceful stop failed, force killing');
           container.kill('SIGKILL');

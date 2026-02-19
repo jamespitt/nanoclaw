@@ -182,7 +182,7 @@ Run `./.claude/skills/setup/scripts/08-setup-service.sh` and parse the status bl
 - Read `logs/setup.log` for the error.
 - Common fix: plist already loaded with different path. Unload the old one first, then re-run.
 - On macOS: check `launchctl list | grep nanoclaw` to see if it's loaded with an error status. If the PID column is `-` and the status column is non-zero, the service is crashing. Read `logs/nanoclaw.error.log` for the crash reason and fix it (common: wrong Node path, missing .env, missing auth).
-- On Linux: check `systemctl --user status nanoclaw` for the error and fix accordingly.
+- On Linux: check `systemctl status nanoclaw` for the error and fix accordingly.
 - Re-run the setup-service script after fixing.
 
 ## 11. Verify

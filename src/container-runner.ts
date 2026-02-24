@@ -207,7 +207,7 @@ function buildVolumeMounts(
     mounts.push({
       hostPath: notesVault,
       containerPath: notesVault,
-      readonly: true,
+      readonly: false,
     });
   }
 
@@ -229,7 +229,15 @@ function buildVolumeMounts(
  * Secrets are never written to disk or mounted as files.
  */
 function readSecrets(): Record<string, string> {
-  return readEnvFile(['CLAUDE_CODE_OAUTH_TOKEN', 'ANTHROPIC_API_KEY']);
+  return readEnvFile([
+    'CLAUDE_CODE_OAUTH_TOKEN',
+    'ANTHROPIC_API_KEY',
+    // Summarize skill: ANTHROPIC_API_KEY is stripped from Bash env for security,
+    // so summarize uses Gemini (or OpenAI/xAI) instead. These keys are not stripped.
+    'GEMINI_API_KEY',
+    'OPENAI_API_KEY',
+    'XAI_API_KEY',
+  ]);
 }
 
 function buildContainerArgs(mounts: VolumeMount[], containerName: string): string[] {

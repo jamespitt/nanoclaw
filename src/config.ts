@@ -8,6 +8,9 @@ import { readEnvFile } from './env.js';
 const envConfig = readEnvFile([
   'ASSISTANT_NAME',
   'ASSISTANT_HAS_OWN_NUMBER',
+  'ZAPMEOW_BASE_URL',
+  'ZAPMEOW_INSTANCE_ID',
+  'ZAPMEOW_WEBHOOK_PORT',
 ]);
 
 export const ASSISTANT_NAME =
@@ -56,6 +59,15 @@ export const MAX_CONCURRENT_CONTAINERS = Math.max(
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+export const ZAPMEOW_BASE_URL =
+  process.env.ZAPMEOW_BASE_URL || envConfig.ZAPMEOW_BASE_URL || 'http://localhost:8900';
+export const ZAPMEOW_INSTANCE_ID =
+  process.env.ZAPMEOW_INSTANCE_ID || envConfig.ZAPMEOW_INSTANCE_ID || '1';
+export const ZAPMEOW_WEBHOOK_PORT = parseInt(
+  process.env.ZAPMEOW_WEBHOOK_PORT || envConfig.ZAPMEOW_WEBHOOK_PORT || '8001',
+  10,
+);
 
 export const TRIGGER_PATTERN = new RegExp(
   `^@${escapeRegex(ASSISTANT_NAME)}\\b`,

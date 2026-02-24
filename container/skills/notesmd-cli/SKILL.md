@@ -99,6 +99,8 @@ notesmd-cli tasks --tag "work" --tag "urgent"  # Multiple tags (OR logic)
 
 Tasks are markdown checkboxes: `- [ ] Task text`. Scheduled dates use `📅 YYYY-MM-DD` syntax (Tasks plugin convention).
 
+If you want to ask a task - please add it to the file in 'Google Tasks/Obsidian.md' 
+
 ## Using a non-default vault
 
 ```bash

@@ -10,7 +10,7 @@ import {
   POLL_INTERVAL,
   TRIGGER_PATTERN,
 } from './config.js';
-import { WhatsAppChannel } from './channels/whatsapp.js';
+import { ZapMeowChannel } from './channels/zapmeow.js';
 import {
   ContainerOutput,
   runContainerAgent,
@@ -48,7 +48,7 @@ let registeredGroups: Record<string, RegisteredGroup> = {};
 let lastAgentTimestamp: Record<string, string> = {};
 let messageLoopRunning = false;
 
-let whatsapp: WhatsAppChannel;
+let whatsapp: ZapMeowChannel;
 const channels: Channel[] = [];
 const queue = new GroupQueue();
 
@@ -461,7 +461,7 @@ async function main(): Promise<void> {
   };
 
   // Create and connect channels
-  whatsapp = new WhatsAppChannel(channelOpts);
+  whatsapp = new ZapMeowChannel(channelOpts);
   channels.push(whatsapp);
   await whatsapp.connect();
 

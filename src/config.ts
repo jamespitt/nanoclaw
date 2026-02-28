@@ -65,7 +65,7 @@ export const ZAPMEOW_BASE_URL =
 export const ZAPMEOW_INSTANCE_ID =
   process.env.ZAPMEOW_INSTANCE_ID || envConfig.ZAPMEOW_INSTANCE_ID || '1';
 export const ZAPMEOW_WEBHOOK_PORT = parseInt(
-  process.env.ZAPMEOW_WEBHOOK_PORT || envConfig.ZAPMEOW_WEBHOOK_PORT || '8001',
+  process.env.ZAPMEOW_WEBHOOK_PORT || envConfig.ZAPMEOW_WEBHOOK_PORT || '8002',
   10,
 );
 

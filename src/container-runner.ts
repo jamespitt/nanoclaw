@@ -79,6 +79,16 @@ function buildVolumeMounts(
       containerPath: '/workspace/group',
       readonly: false,
     });
+
+    // James's beancount accounts - main group only
+    const accountsDir = path.join(homeDir, 'src', 'james_accounts');
+    if (fs.existsSync(accountsDir)) {
+      mounts.push({
+        hostPath: accountsDir,
+        containerPath: accountsDir,
+        readonly: false,
+      });
+    }
   } else {
     // Other groups only get their own folder
     mounts.push({

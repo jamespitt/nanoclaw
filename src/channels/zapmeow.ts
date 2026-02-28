@@ -43,6 +43,10 @@ interface ZapMeowWebhookBody {
     body: string;
     media_type: string;
   };
+  transcription?: {
+    text: string;
+    status: string;
+  };
 }
 
 /**
@@ -100,6 +104,22 @@ export class ZapMeowChannel implements Channel {
   }
 
   private async handleWebhook(payload: ZapMeowWebhookBody): Promise<void> {
+    logger.info({
+      instanceId: payload?.instanceId,
+      sender: payload?.message?.sender,
+      chat: payload?.message?.chat,
+      from_me: payload?.message?.from_me,
+      body: payload?.message?.body?.slice(0, 200),
+      media_type: payload?.message?.media_type,
+      transcription_status: payload?.transcription?.status,
+      transcription_text: payload?.transcription?.text?.slice(0, 200),
+    }, 'Webhook received');
+
+    if (payload?.instanceId !== ZAPMEOW_INSTANCE_ID) {
+      logger.warn({ instanceId: payload?.instanceId, expected: ZAPMEOW_INSTANCE_ID }, 'Ignoring webhook from unconfigured instance');
+      return;
+    }
+
     const msg = payload?.message;
     if (!msg?.chat) return;
 
@@ -113,7 +133,16 @@ export class ZapMeowChannel implements Channel {
     const groups = this.opts.registeredGroups();
     if (!groups[chatJid]) return;
 
-    const content = msg.body || '';
+    const transcription = payload.transcription;
+    const content = (transcription?.status === 'done' && transcription?.text)
+      ? transcription.text
+      : (msg.body || '');
+
+    if (!content) {
+      logger.debug({ messageId: msg.message_id, media_type: msg.media_type }, 'Skipping empty message (awaiting transcription)');
+      return;
+    }
+
     const isBotMessage = ASSISTANT_HAS_OWN_NUMBER
       ? msg.from_me
       : content.startsWith(`${ASSISTANT_NAME}:`);
@@ -131,12 +160,18 @@ export class ZapMeowChannel implements Channel {
   }
 
   async sendMessage(jid: string, text: string): Promise<void> {
+    const SEND_ALLOWLIST = ['447906616842', '353870985961'];
+    const phone = jid.split('@')[0];
+    if (!SEND_ALLOWLIST.includes(phone)) {
+      logger.warn({ jid, phone }, 'Blocked outbound message to non-allowlisted number');
+      return;
+    }
+
     const prefixed = ASSISTANT_HAS_OWN_NUMBER
       ? text
       : `${ASSISTANT_NAME}: ${text}`;
 
-    const phone = jid.split('@')[0];
-    const url = `${ZAPMEOW_BASE_URL}/${ZAPMEOW_INSTANCE_ID}/chat/send/text`;
+    const url = `${ZAPMEOW_BASE_URL}/api/${ZAPMEOW_INSTANCE_ID}/chat/send/text`;
 
     try {
       const res = await fetch(url, {

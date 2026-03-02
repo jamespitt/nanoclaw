@@ -32,6 +32,7 @@ import {
   storeChatMetadata,
   storeMessage,
 } from './db.js';
+import { seedCronTasks } from './cron-seeder.js';
 import { GroupQueue } from './group-queue.js';
 import { startIpcWatcher } from './ipc.js';
 import { findChannel, formatMessages, formatOutbound } from './router.js';
@@ -441,6 +442,7 @@ async function main(): Promise<void> {
   initDatabase();
   logger.info('Database initialized');
   loadState();
+  seedCronTasks(registeredGroups);
 
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
